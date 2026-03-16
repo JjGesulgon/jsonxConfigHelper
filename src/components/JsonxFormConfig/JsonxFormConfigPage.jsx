@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
-import { AlertCircle, CheckCircle2, Copy, Download, Wand2, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Copy, Download, Eye, Wand2, XCircle } from 'lucide-react';
 import { useJsonxGenerator } from '../../hooks/useJsonxGenerator';
+import GeneratedFormPreviewModal from './GeneratedFormPreviewModal';
 
 const Card = ({ children, className = '' }) => (
   <div className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>
@@ -109,11 +110,12 @@ function PreviewCard({ label, value }) {
 
 export default function JsonxFormConfigPage() {
   const { state, derived, actions } = useJsonxGenerator();
+  const [isFormPreviewOpen, setIsFormPreviewOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-6">
-      <div className="mx-auto max-w-[1500px] space-y-6">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="min-h-screen bg-slate-100 px-8 py-4 md:px-12 md:py-6">
+      <div className="w-full space-y-6">
+        <div className="rounded-3xl border border-slate-0 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -385,6 +387,13 @@ export default function JsonxFormConfigPage() {
                   >
                     <Download className="h-4 w-4" /> Export
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsFormPreviewOpen(true)}
+                    disabled={!derived.generatedFormConfig}
+                  >
+                    <Eye className="h-4 w-4" /> Generate Form
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -442,6 +451,12 @@ export default function JsonxFormConfigPage() {
             </CardContent>
           </Card>
         </div>
+
+        <GeneratedFormPreviewModal
+          isOpen={isFormPreviewOpen}
+          onClose={() => setIsFormPreviewOpen(false)}
+          config={derived.generatedFormConfig}
+        />
       </div>
     </div>
   );

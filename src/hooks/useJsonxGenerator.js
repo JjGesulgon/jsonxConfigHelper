@@ -7,6 +7,7 @@ import { generateUiSchemaFromSchema } from '../utils/uiSchemaGenerator';
 import { generateTypescriptModuleFromArtifacts } from '../utils/codegen';
 import { callOpenAICompatibleApi, callHybridReviewApi } from '../services/aiClient';
 import { runSelfTests } from '../tests/selfTests';
+import { buildGeneratedFormConfig } from '../utils/generatedFormConfig';
 
 export function useJsonxGenerator() {
   const [apiResponseText, setApiResponseText] = useState(sampleApiResponseText);
@@ -63,6 +64,16 @@ export function useJsonxGenerator() {
       return null;
     }
   }, [aiGeneratedUiSchema, generationMode, parsed.data]);
+
+  const generatedFormConfig = useMemo(() => {
+    if (!parsed.data || !generatedUiSchemaPreview) return null;
+
+    try {
+      return buildGeneratedFormConfig(parsed.data, generatedUiSchemaPreview, exportName);
+    } catch {
+      return null;
+    }
+  }, [exportName, generatedUiSchemaPreview, parsed.data]);
 
   const generatedCode = useMemo(() => {
     if (!parsed.data) return '';
@@ -205,6 +216,7 @@ export function useJsonxGenerator() {
       parsed,
       generatedCode,
       generatedUiSchemaPreview,
+      generatedFormConfig,
       fieldCount,
       selfTests,
       passedTests,

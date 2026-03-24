@@ -12,19 +12,21 @@ function getPatternRule(name) {
 }
 
 function getSchemaRule(name, field) {
-  if (Array.isArray(field?.enum) && field.enum.length > 0) {
-    const isRadio = field?.__ui_type === 'radio';
+  const hasEnum = Array.isArray(field?.enum) && field.enum.length > 0;
+  const uiType = field?.__ui_type;
+
+  if (hasEnum) {
+    const isRadio = uiType === 'radio';
 
     return {
       widget: isRadio ? 'radio' : 'SelectWidget',
-      placeholder: `Select ${field?.title || toTitleCase(name)}`,
+      placeholder: isRadio ? undefined : `Select ${field?.title || toTitleCase(name)}`,
       flex: 6,
       props: 'initialFormProps',
-      options: isRadio
-        ? {
-            inline: false,
-          }
-        : undefined,
+      options: {
+        ...(isRadio ? { inline: false } : {}),
+        ...(Array.isArray(field?.enumNames) ? { enumNames: field.enumNames } : {}),
+      },
     };
   }
 
@@ -58,6 +60,18 @@ function getSchemaRule(name, field) {
     };
   }
 
+  if (field?.format === 'textarea' || field?.__ui_type === 'textarea') {
+    return {
+      widget: 'textarea',
+      placeholder: `Enter ${field?.title || toTitleCase(name)}`,
+      flex: 12,
+      props: 'initialFormProps',
+      options: {
+        rows: 4,
+      },
+    };
+  }
+
   return null;
 }
 
@@ -82,9 +96,12 @@ export function buildFieldUiSchema(name, field) {
   const rule = resolveFieldRule(name, field);
 
   const result = {
-    'ui:placeholder': rule.placeholder,
     'ui:fieldFlexWidth': rule.flex ?? 6,
   };
+
+  if (rule.placeholder) {
+    result['ui:placeholder'] = rule.placeholder;
+  }
 
   if (rule.widget) {
     result['ui:widget'] = rule.widget;
@@ -99,29 +116,37 @@ export function buildFieldUiSchema(name, field) {
   return result;
 }
 
+function buildGroupUiSchema(groupDef) {
+  const groupSchema = {
+    title: {
+      props: {
+        sx: {
+          fontSize: '18px',
+          fontWeight: 600,
+          textTransform: 'none',
+        },
+      },
+    },
+  };
+
+  Object.entries(groupDef.properties || {}).forEach(([fieldName, fieldDef]) => {
+    if (fieldDef?.type === 'object' && fieldDef?.properties) {
+      groupSchema[fieldName] = buildGroupUiSchema(fieldDef);
+    } else {
+      groupSchema[fieldName] = buildFieldUiSchema(fieldName, fieldDef);
+    }
+  });
+
+  return groupSchema;
+}
+
 export function generateUiSchemaFromSchema(schema) {
   const result = {};
   const topProperties = schema?.properties || {};
 
   Object.entries(topProperties).forEach(([groupName, groupDef]) => {
     if (groupDef?.type === 'object' && groupDef?.properties) {
-      const groupSchema = {
-        title: {
-          props: {
-            sx: {
-              fontSize: '18px',
-              fontWeight: 600,
-              textTransform: 'none',
-            },
-          },
-        },
-      };
-
-      Object.entries(groupDef.properties).forEach(([fieldName, fieldDef]) => {
-        groupSchema[fieldName] = buildFieldUiSchema(fieldName, fieldDef);
-      });
-
-      result[groupName] = groupSchema;
+      result[groupName] = buildGroupUiSchema(groupDef);
     } else {
       result[groupName] = buildFieldUiSchema(groupName, groupDef);
     }

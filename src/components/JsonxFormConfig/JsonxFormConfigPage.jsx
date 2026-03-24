@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2, Copy, Download, Eye, Wand2, XCircle } from 'lucide-react';
 import { useJsonxGenerator } from '../../hooks/useJsonxGenerator';
 import GeneratedFormPreviewModal from './GeneratedFormPreviewModal';
+import Editor from '@monaco-editor/react';
 
 const Card = ({ children, className = '' }) => (
   <div className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>
@@ -129,6 +130,19 @@ export default function JsonxFormConfigPage() {
       document.body.style.paddingRight = '';
     };
   }, [isFormPreviewOpen]);
+
+  useEffect(() => {
+    try {
+      const parsed = JSON.parse(state.apiResponseText);
+      const formatted = JSON.stringify(parsed, null, 2);
+
+      if (formatted !== state.apiResponseText) {
+        actions.setApiResponseText(formatted);
+      }
+    } catch {
+      // ignore invalid JSON
+    }
+  }, []); // run only once on mount
 
   return (
     <div className="min-h-screen bg-slate-100 px-8 py-4 md:px-12 md:py-6">
@@ -368,11 +382,28 @@ export default function JsonxFormConfigPage() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <Textarea
-                value={state.apiResponseText}
-                onChange={(e) => actions.setApiResponseText(e.target.value)}
-                className="min-h-[620px]"
-              />
+              <div className="rounded-2xl border border-slate-300 overflow-hidden">
+                <Editor
+                  height="620px"
+                  defaultLanguage="json"
+                  value={state.apiResponseText}
+                  onChange={(value) => actions.setApiResponseText(value || '')}
+                  options={{
+                    lineNumbers: 'on',
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                    formatOnPaste: true,
+                    formatOnType: true,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    fontSize: 14,
+                    stickyScroll: {
+                      enabled: false,
+                    },
+                  }}
+                />
+              </div>
 
               {derived.parsed.error && (
                 <div className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">

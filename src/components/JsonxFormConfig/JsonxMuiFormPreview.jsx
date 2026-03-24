@@ -36,6 +36,7 @@ function buildInitialFormDataFromSchema(schema) {
   if (schema.default !== undefined) return schema.default;
   if (schema.type === 'boolean') return false;
   if (schema.type === 'number' || schema.type === 'integer') return undefined;
+
   return '';
 }
 
@@ -295,8 +296,8 @@ function JsonXMuiForm(props) {
     <Form
       {...themeObject}
       {...props}
-      transformErrors={transformErrors}
       validator={validator}
+      transformErrors={transformErrors}
     />
   );
 }
@@ -318,6 +319,52 @@ export default function JsonxMuiFormPreview({ config }) {
 
   const handleTabChange = (_, newValue) => {
     setTab(newValue);
+  };
+
+  const handleSubmit = ({ formData: submittedFormData }) => {
+    window.alert(`Submitted:\n${JSON.stringify(submittedFormData, null, 2)}`);
+  };
+
+  // const handleCancel = () => {
+  //   setFormData(initialFormData);
+  // };
+
+  const handleSave = () => {
+    window.alert(`Saved:\n${JSON.stringify(formData, null, 2)}`);
+  };
+
+  const handleCancelClick = () => {
+    setFormData(initialFormData);
+    
+  };
+
+  const triggerSubmit = () => {
+    document.getElementById('jsonx-hidden-submit')?.click();
+  };
+
+  const actionMap = {
+    cancel: handleCancelClick,
+    onCancel: handleCancelClick,
+    onClosePrompt: handleCancelClick,
+
+    save: handleSave,
+    onSave: handleSave,
+    onSaveDetails: handleSave,
+
+    submit: triggerSubmit,
+    onSubmit: triggerSubmit,
+  };
+
+  const handleActionClick = (button) => {
+    const action = String(button?.action || '');
+    const handler = actionMap[action];
+
+    if (handler) {
+      handler();
+      return;
+    }
+
+    window.alert(`${button?.action || button?.label || 'button'} clicked`);
   };
 
   return (
@@ -351,7 +398,7 @@ export default function JsonxMuiFormPreview({ config }) {
           color="text.secondary"
           sx={{ textAlign: 'left', m: 0 }}
         >
-          Live form preview generated from the current JSONX form config.
+          Live form preview generated from the current schema, uiSchema, and config.
         </Typography>
       </Box>
 
@@ -368,15 +415,17 @@ export default function JsonxMuiFormPreview({ config }) {
         {tab === 0 && (
           <Box>
             <JsonXMuiForm
-              schema={config.schema}
-              uiSchema={config.uiSchema}
+              schema={config?.schema}
+              uiSchema={config?.uiSchema}
               formData={formData}
               onChange={(e) => setFormData(e.formData)}
-              onSubmit={(e) =>
-                window.alert(`Submitted:\n${JSON.stringify(e.formData, null, 2)}`)
-              }
+              onSubmit={handleSubmit}
             >
-              <></>
+              <button
+                id="jsonx-hidden-submit"
+                type="submit"
+                style={{ display: 'none' }}
+              />
             </JsonXMuiForm>
 
             {!!actionButtons.length && (
@@ -391,9 +440,7 @@ export default function JsonxMuiFormPreview({ config }) {
                     key={`${button?.label || button?.action || 'button'}-${index}`}
                     variant={button?.color === 'secondary' ? 'outlined' : 'contained'}
                     color={button?.color || 'primary'}
-                    onClick={() =>
-                      window.alert(`${button?.action || button?.label || 'button'} clicked`)
-                    }
+                    onClick={() => handleActionClick(button)}
                   >
                     {button?.label || 'Action'}
                   </Button>

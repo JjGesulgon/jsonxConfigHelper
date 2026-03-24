@@ -17,6 +17,10 @@
   }
 }
 
+.monaco-editor {
+  font-family: monospace !important;
+}
+
 .hero {
   position: relative;
 

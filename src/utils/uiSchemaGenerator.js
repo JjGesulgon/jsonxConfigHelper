@@ -1,3 +1,4 @@
+// src/utils/uiSchemaGenerator.js
 import { DASH_FIELD_DICTIONARY, DASH_PATTERN_RULES } from '../constants/fieldDictionary';
 import { toTitleCase } from './naming';
 
@@ -12,15 +13,28 @@ function getPatternRule(name) {
 
 function getSchemaRule(name, field) {
   if (Array.isArray(field?.enum) && field.enum.length > 0) {
+    const isRadio = field?.__ui_type === 'radio';
+
     return {
-      widget: 'SelectWidget',
+      widget: isRadio ? 'radio' : 'SelectWidget',
       placeholder: `Select ${field?.title || toTitleCase(name)}`,
       flex: 6,
       props: 'initialFormProps',
+      options: isRadio
+        ? {
+            inline: false,
+          }
+        : undefined,
     };
   }
 
-  if (field?.pattern === 'contact_number_ph' || name.includes('contact_number')) {
+  if (
+    field?.pattern === 'contact_number_ph' ||
+    name === 'contact_number' ||
+    name === 'phone_number' ||
+    name === 'mobile_number' ||
+    name === 'phone'
+  ) {
     return {
       widget: 'CustomContactInputWidget',
       placeholder: 'XXX-XXX-XXXX',
@@ -57,9 +71,9 @@ function getDefaultRule(name, field) {
 
 function resolveFieldRule(name, field) {
   return (
+    getSchemaRule(name, field) ||
     getDictionaryRule(name) ||
     getPatternRule(name) ||
-    getSchemaRule(name, field) ||
     getDefaultRule(name, field)
   );
 }
@@ -72,8 +86,8 @@ export function buildFieldUiSchema(name, field) {
     'ui:fieldFlexWidth': rule.flex ?? 6,
   };
 
-  if (rule.widget === 'SelectWidget') {
-    result['ui:widget'] = 'SelectWidget';
+  if (rule.widget) {
+    result['ui:widget'] = rule.widget;
   }
 
   if (rule.options) {

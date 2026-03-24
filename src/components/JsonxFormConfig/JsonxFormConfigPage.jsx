@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2, Copy, Download, Eye, Wand2, XCircle } from 'lucide-react';
 import { useJsonxGenerator } from '../../hooks/useJsonxGenerator';
 import GeneratedFormPreviewModal from './GeneratedFormPreviewModal';
@@ -48,7 +48,9 @@ const Textarea = ({ className = '', ...props }) => (
 );
 
 const Badge = ({ children, className = '' }) => (
-  <span className={`inline-flex items-center rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 ${className}`}>
+  <span
+    className={`inline-flex items-center rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 ${className}`}
+  >
     {children}
   </span>
 );
@@ -111,6 +113,22 @@ function PreviewCard({ label, value }) {
 export default function JsonxFormConfigPage() {
   const { state, derived, actions } = useJsonxGenerator();
   const [isFormPreviewOpen, setIsFormPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    if (isFormPreviewOpen) {
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    };
+  }, [isFormPreviewOpen]);
 
   return (
     <div className="min-h-screen bg-slate-100 px-8 py-4 md:px-12 md:py-6">
@@ -416,9 +434,11 @@ export default function JsonxFormConfigPage() {
                 <TabsContent value="preview">
                   <ScrollArea className="h-[700px] rounded-2xl border border-slate-200 bg-slate-900 p-0">
                     <CodeBlock
-                      code={derived.generatedUiSchemaPreview
-                        ? JSON.stringify(derived.generatedUiSchemaPreview, null, 2)
-                        : '{}'}
+                      code={
+                        derived.generatedUiSchemaPreview
+                          ? JSON.stringify(derived.generatedUiSchemaPreview, null, 2)
+                          : '{}'
+                      }
                     />
                   </ScrollArea>
                 </TabsContent>
@@ -438,7 +458,11 @@ export default function JsonxFormConfigPage() {
                           className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4"
                         >
                           <div className="pr-4 text-sm leading-6 text-slate-800">{test.name}</div>
-                          <div className={`flex items-center gap-2 text-sm font-medium ${test.pass ? 'text-green-700' : 'text-red-700'}`}>
+                          <div
+                            className={`flex items-center gap-2 text-sm font-medium ${
+                              test.pass ? 'text-green-700' : 'text-red-700'
+                            }`}
+                          >
                             {test.pass ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                             {test.pass ? 'Pass' : 'Fail'}
                           </div>

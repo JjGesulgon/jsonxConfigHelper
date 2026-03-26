@@ -1,6 +1,7 @@
 // src/utils/uiSchemaGenerator.js
 import { DASH_FIELD_DICTIONARY, DASH_PATTERN_RULES } from '../constants/fieldDictionary';
 import { toTitleCase } from './naming';
+import enrichSchemaFromApi from './schemaEnricher';
 
 function getDictionaryRule(name) {
   return DASH_FIELD_DICTIONARY[name] || null;
@@ -140,7 +141,7 @@ function buildGroupUiSchema(groupDef) {
   return groupSchema;
 }
 
-export function generateUiSchemaFromSchema(schema) {
+function buildUiSchemaFromEnrichedSchema(schema) {
   const result = {};
   const topProperties = schema?.properties || {};
 
@@ -160,4 +161,9 @@ export function generateUiSchemaFromSchema(schema) {
   };
 
   return result;
+}
+
+export function generateUiSchemaFromSchema(schema, apiResponse = null) {
+  const enrichedSchema = apiResponse ? enrichSchemaFromApi(schema, apiResponse) : schema;
+  return buildUiSchemaFromEnrichedSchema(enrichedSchema);
 }

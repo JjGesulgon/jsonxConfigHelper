@@ -2,7 +2,12 @@ import React from 'react';
 import { X } from 'lucide-react';
 import JsonxMuiFormPreview from './JsonxMuiFormPreview';
 
-export default function GeneratedFormPreviewModal({ isOpen, onClose, config }) {
+export default function GeneratedFormPreviewModal({
+  isOpen,
+  onClose,
+  config,
+  apiResponse,
+}) {
   if (!isOpen || !config) return null;
 
   return (
@@ -27,7 +32,7 @@ export default function GeneratedFormPreviewModal({ isOpen, onClose, config }) {
         </div>
 
         <div className="max-h-[calc(92vh-88px)] overflow-auto bg-slate-50 p-4 text-left">
-          <JsonxMuiFormPreview config={config} />
+          <JsonxMuiFormPreview config={config} apiResponse={apiResponse} />
         </div>
       </div>
     </div>

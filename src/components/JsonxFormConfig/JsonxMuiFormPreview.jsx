@@ -19,6 +19,21 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import enrichSchemaFromApi from '../../utils/schemaEnricher';
+import { generateUiSchemaFromSchema } from '../../utils/uiSchemaGenerator';
+
+function isPlainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isOptionDrivenField(value) {
+  return (
+    isPlainObject(value) &&
+    'value' in value &&
+    Array.isArray(value.options) &&
+    typeof value.ui_type === 'string'
+  );
+}
 
 function buildInitialFormDataFromSchema(schema) {
   if (!schema) return {};
@@ -36,6 +51,44 @@ function buildInitialFormDataFromSchema(schema) {
   if (schema.default !== undefined) return schema.default;
   if (schema.type === 'boolean') return false;
   if (schema.type === 'number' || schema.type === 'integer') return undefined;
+
+  return '';
+}
+
+function normalizeFormDataFromApi(apiNode, schemaNode) {
+  if (!schemaNode) return undefined;
+
+  if (schemaNode.type === 'object') {
+    const result = {};
+    const properties = schemaNode.properties || {};
+
+    Object.entries(properties).forEach(([key, childSchema]) => {
+      const apiValue = isPlainObject(apiNode) ? apiNode[key] : undefined;
+      const normalizedChild = normalizeFormDataFromApi(apiValue, childSchema);
+
+      if (normalizedChild !== undefined) {
+        result[key] = normalizedChild;
+      }
+    });
+
+    return result;
+  }
+
+  if (isOptionDrivenField(apiNode)) {
+    return apiNode.value;
+  }
+
+  if (apiNode !== undefined) {
+    return apiNode;
+  }
+
+  if (schemaNode.default !== undefined) {
+    return schemaNode.default;
+  }
+
+  if (schemaNode.type === 'array') return [];
+  if (schemaNode.type === 'boolean') return false;
+  if (schemaNode.type === 'number' || schemaNode.type === 'integer') return undefined;
 
   return '';
 }
@@ -302,11 +355,29 @@ function JsonXMuiForm(props) {
   );
 }
 
-export default function JsonxMuiFormPreview({ config }) {
-  const initialFormData = useMemo(
-    () => buildInitialFormDataFromSchema(config?.schema),
-    [config?.schema]
+export default function JsonxMuiFormPreview({ config, apiResponse }) {
+  const enrichedSchema = useMemo(
+    () => enrichSchemaFromApi(config?.schema, apiResponse),
+    [config?.schema, apiResponse]
   );
+
+  const generatedUiSchema = useMemo(
+    () => generateUiSchemaFromSchema(config?.schema, apiResponse),
+    [config?.schema, apiResponse]
+  );
+
+  const resolvedUiSchema = useMemo(
+    () => config?.uiSchema || generatedUiSchema || {},
+    [config?.uiSchema, generatedUiSchema]
+  );
+
+  const initialFormData = useMemo(() => {
+    if (apiResponse) {
+      return normalizeFormDataFromApi(apiResponse?.data || apiResponse, enrichedSchema);
+    }
+
+    return buildInitialFormDataFromSchema(enrichedSchema);
+  }, [apiResponse, enrichedSchema]);
 
   const [formData, setFormData] = useState(initialFormData);
   const [tab, setTab] = useState(0);
@@ -325,17 +396,12 @@ export default function JsonxMuiFormPreview({ config }) {
     window.alert(`Submitted:\n${JSON.stringify(submittedFormData, null, 2)}`);
   };
 
-  // const handleCancel = () => {
-  //   setFormData(initialFormData);
-  // };
-
   const handleSave = () => {
     window.alert(`Saved:\n${JSON.stringify(formData, null, 2)}`);
   };
 
   const handleCancelClick = () => {
     setFormData(initialFormData);
-    
   };
 
   const triggerSubmit = () => {
@@ -390,7 +456,7 @@ export default function JsonxMuiFormPreview({ config }) {
             textAlign: 'left',
           }}
         >
-          {config?.main_header || config?.schema?.title || 'Generated Form'}
+          {config?.main_header || enrichedSchema?.title || 'Generated Form'}
         </Typography>
 
         <Typography
@@ -415,8 +481,8 @@ export default function JsonxMuiFormPreview({ config }) {
         {tab === 0 && (
           <Box>
             <JsonXMuiForm
-              schema={config?.schema}
-              uiSchema={config?.uiSchema}
+              schema={enrichedSchema}
+              uiSchema={resolvedUiSchema}
               formData={formData}
               onChange={(e) => setFormData(e.formData)}
               onSubmit={handleSubmit}

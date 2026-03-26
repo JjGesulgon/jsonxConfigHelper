@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Copy, Download, Eye, Wand2, XCircle } from 'lucide-react';
 import { useJsonxGenerator } from '../../hooks/useJsonxGenerator';
 import GeneratedFormPreviewModal from './GeneratedFormPreviewModal';
 import Editor from '@monaco-editor/react';
+import enrichSchemaFromApi from '../../utils/schemaEnricher';
 
 const Card = ({ children, className = '' }) => (
   <div className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>
@@ -114,6 +115,23 @@ function PreviewCard({ label, value }) {
 export default function JsonxFormConfigPage() {
   const { state, derived, actions } = useJsonxGenerator();
   const [isFormPreviewOpen, setIsFormPreviewOpen] = useState(false);
+
+  const parsedApiResponse = useMemo(() => {
+    try {
+      return JSON.parse(state.apiResponseText);
+    } catch {
+      return null;
+    }
+  }, [state.apiResponseText]);
+
+  const previewConfig = useMemo(() => {
+    if (!derived.generatedFormConfig) return null;
+
+    return {
+      ...derived.generatedFormConfig,
+      schema: enrichSchemaFromApi(derived.generatedFormConfig.schema, parsedApiResponse),
+    };
+  }, [derived.generatedFormConfig, parsedApiResponse]);
 
   useEffect(() => {
     if (isFormPreviewOpen) {
@@ -439,7 +457,7 @@ export default function JsonxFormConfigPage() {
                   <Button
                     variant="outline"
                     onClick={() => setIsFormPreviewOpen(true)}
-                    disabled={!derived.generatedFormConfig}
+                    disabled={!previewConfig}
                   >
                     <Eye className="h-4 w-4" /> Generate Form
                   </Button>
@@ -476,7 +494,15 @@ export default function JsonxFormConfigPage() {
 
                 <TabsContent value="inferred-schema">
                   <ScrollArea className="h-[700px] rounded-2xl border border-slate-200 bg-slate-900 p-0">
-                    <CodeBlock code={derived.parsed.data ? JSON.stringify(derived.parsed.data, null, 2) : '{}'} />
+                    <CodeBlock
+                      code={
+                        previewConfig?.schema
+                          ? JSON.stringify(previewConfig.schema, null, 2)
+                          : derived.parsed.data
+                            ? JSON.stringify(derived.parsed.data, null, 2)
+                            : '{}'
+                      }
+                    />
                   </ScrollArea>
                 </TabsContent>
 
@@ -510,7 +536,8 @@ export default function JsonxFormConfigPage() {
         <GeneratedFormPreviewModal
           isOpen={isFormPreviewOpen}
           onClose={() => setIsFormPreviewOpen(false)}
-          config={derived.generatedFormConfig}
+          config={previewConfig}
+          apiResponse={parsedApiResponse}
         />
       </div>
     </div>

@@ -260,7 +260,16 @@ function ObjectFieldTemplate(props) {
       spacing={2.5}
       justifyContent="flex-start"
       alignItems="flex-start"
-      sx={{ width: '100%', m: 0 }}
+      sx={{
+        width: '100%',
+        m: 0,
+        ...(isRootObject
+          ? {}
+          : {
+              ml: '-20px',
+              width: 'calc(100% + 20px)',
+            }),
+      }}
     >
       {!isRootObject && (
         <Grid item xs={12}>

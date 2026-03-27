@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Form from '@rjsf/mui';
 import validator from '@rjsf/validator-ajv8';
+import Grid from '@mui/material/Grid2';
 import {
   Box,
   Button,
   FormControl,
   FormHelperText,
   FormLabel,
-  Grid,
   InputAdornment,
   MenuItem,
   Paper,
@@ -263,16 +263,10 @@ function ObjectFieldTemplate(props) {
       sx={{
         width: '100%',
         m: 0,
-        ...(isRootObject
-          ? {}
-          : {
-              ml: '-20px',
-              width: 'calc(100% + 20px)',
-            }),
       }}
     >
       {!isRootObject && (
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Box sx={{ mb: 1.5, textAlign: 'left' }}>
             {props.title && (
               <Typography
@@ -311,10 +305,14 @@ function ObjectFieldTemplate(props) {
         return (
           <Grid
             key={index}
-            item
-            xs={12}
-            sm={element?.content?.props?.uiSchema?.['ui:fieldFlexWidth'] || 12}
-            sx={element?.content?.props?.uiSchema?.['ui:containerStyle'] || {}}
+            size={{
+              xs: 12,
+              sm: element?.content?.props?.uiSchema?.['ui:fieldFlexWidth'] || 12,
+            }}
+            sx={{
+              minWidth: 0,
+              ...(element?.content?.props?.uiSchema?.['ui:containerStyle'] || {}),
+            }}
           >
             {element.content}
           </Grid>

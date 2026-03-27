@@ -160,7 +160,7 @@ export default function JsonxFormConfigPage() {
     } catch {
       // ignore invalid JSON
     }
-  }, []); // run only once on mount
+  }, [state.apiResponseText, actions]);
 
   return (
     <div className="min-h-screen bg-slate-100 px-8 py-4 md:px-12 md:py-6">

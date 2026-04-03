@@ -6,7 +6,7 @@ import Editor from '@monaco-editor/react';
 import enrichSchemaFromApi from '../../utils/schemaEnricher';
 
 const Card = ({ children, className = '' }) => (
-  <div className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>
+  <div className={`border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>
 );
 
 const CardHeader = ({ children, className = '' }) => (
@@ -56,6 +56,7 @@ const TabsContext = createContext(null);
 
 const Tabs = ({ children, defaultValue, className = '' }) => {
   const [activeTab, setActiveTab] = useState(defaultValue);
+
   return (
     <TabsContext.Provider value={{ activeTab, setActiveTab }}>
       <div className={className}>{children}</div>
@@ -69,6 +70,7 @@ const TabsList = ({ children, className = '' }) => (
 
 const TabsTrigger = ({ children, value, className = '' }) => {
   const { activeTab, setActiveTab } = useContext(TabsContext);
+
   return (
     <button
       type="button"
@@ -211,9 +213,9 @@ export default function JsonxFormConfigPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 py-4 md:py-6">
-      <div className="space-y-6">
-        <div className="px-8 md:px-12">
-          <div className="rounded-3xl border border-slate-0 bg-white p-6 shadow-sm">
+      <div className="w-full max-w-none space-y-6">
+        <div className="px-2 md:px-3 xl:px-4">
+          <div className="rounded-3xl bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -243,8 +245,8 @@ export default function JsonxFormConfigPage() {
           </div>
         </div>
 
-        <div className="px-8 md:px-12">
-          <Card>
+        <div className="px-2 md:px-3 xl:px-4">
+          <Card className="rounded-3xl">
             <CardHeader>
               <CardTitle className="text-lg">Generation Mode</CardTitle>
             </CardHeader>
@@ -298,7 +300,7 @@ export default function JsonxFormConfigPage() {
 
               {state.generationMode !== 'rules' && (
                 <div className="flex flex-col items-center gap-4">
-                  <Card className="w-full max-w-md">
+                  <Card className="w-full max-w-md rounded-3xl">
                     <CardHeader>
                       <CardTitle className="text-lg">AI Settings</CardTitle>
                     </CardHeader>
@@ -384,7 +386,7 @@ export default function JsonxFormConfigPage() {
 
                   {(state.aiNotes.length > 0 ||
                     (state.hybridSuggestions.length > 0 && state.generationMode === 'hybrid')) && (
-                    <Card className="w-full border-slate-200 bg-slate-50 shadow-none">
+                    <Card className="w-full rounded-3xl border-slate-200 bg-slate-50 shadow-none">
                       <CardHeader>
                         <CardTitle className="text-base">AI Notes</CardTitle>
                       </CardHeader>
@@ -413,9 +415,9 @@ export default function JsonxFormConfigPage() {
           </Card>
         </div>
 
-        <div className="px-4 md:px-6">
-          <div className="grid gap-6 xl:grid-cols-[0.9fr_1.35fr] xl:items-start">
-            <Card className="min-w-0 h-full">
+        <div className="px-2 md:px-3 xl:px-4">
+          <div className="grid gap-4 xl:gap-6 xl:grid-cols-[0.7fr_1.9fr] 2xl:grid-cols-[0.65fr_2fr] xl:items-start">
+            <Card className="min-w-0 h-full rounded-3xl">
               <CardHeader>
                 <div className="flex flex-col gap-4">
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -483,7 +485,7 @@ export default function JsonxFormConfigPage() {
               </CardContent>
             </Card>
 
-            <Card className="min-w-0 h-full">
+            <Card className="min-w-0 h-full rounded-3xl">
               <CardHeader>
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                   <CardTitle className="text-lg">Generated Output</CardTitle>

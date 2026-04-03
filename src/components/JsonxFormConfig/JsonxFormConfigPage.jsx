@@ -113,9 +113,24 @@ function PreviewCard({ label, value }) {
 export default function JsonxFormConfigPage() {
   const { state, derived, actions } = useJsonxGenerator();
   const [isFormPreviewOpen, setIsFormPreviewOpen] = useState(false);
+
   const [typedGeneratedCode, setTypedGeneratedCode] = useState('');
+  const [typedUiSchema, setTypedUiSchema] = useState('');
+  const [typedResolvedSchema, setTypedResolvedSchema] = useState('');
+
   const [isTypingGeneratedCode, setIsTypingGeneratedCode] = useState(false);
-  const typingIntervalRef = useRef(null);
+  const [isTypingUiSchema, setIsTypingUiSchema] = useState(false);
+  const [isTypingResolvedSchema, setIsTypingResolvedSchema] = useState(false);
+
+  const [isGeneratedCodeReady, setIsGeneratedCodeReady] = useState(false);
+  const [isUiSchemaReady, setIsUiSchemaReady] = useState(false);
+  const [isResolvedSchemaReady, setIsResolvedSchemaReady] = useState(false);
+
+  const typingIntervalsRef = useRef({
+    generatedCode: null,
+    uiSchema: null,
+    resolvedSchema: null,
+  });
 
   const parsedApiResponse = useMemo(() => {
     try {
@@ -134,41 +149,80 @@ export default function JsonxFormConfigPage() {
     };
   }, [derived.generatedFormConfig, parsedApiResponse]);
 
-  const simulateTyping = (fullText, setter, speed = 1) => {
-    if (typingIntervalRef.current) {
-      clearInterval(typingIntervalRef.current);
-      typingIntervalRef.current = null;
+  const uiSchemaText = useMemo(() => {
+    if (!derived.generatedUiSchemaPreview) {
+      return '// Waiting for generated UI schema';
     }
 
+    return JSON.stringify(derived.generatedUiSchemaPreview, null, 2);
+  }, [derived.generatedUiSchemaPreview]);
+
+  const resolvedSchemaText = useMemo(() => {
+    if (previewConfig?.schema) {
+      return JSON.stringify(previewConfig.schema, null, 2);
+    }
+
+    if (derived.parsed.data) {
+      return JSON.stringify(derived.parsed.data, null, 2);
+    }
+
+    return '// Waiting for resolved schema';
+  }, [previewConfig?.schema, derived.parsed.data]);
+
+  const clearTypingInterval = (key) => {
+    if (typingIntervalsRef.current[key]) {
+      clearInterval(typingIntervalsRef.current[key]);
+      typingIntervalsRef.current[key] = null;
+    }
+  };
+
+  const simulateTyping = ({
+    key,
+    fullText,
+    setter,
+    setIsTyping,
+    setIsReady,
+    speed = 1,
+  }) => {
+    clearTypingInterval(key);
     setter('');
+    setIsReady(false);
 
     if (!fullText) {
-      setIsTypingGeneratedCode(false);
+      setIsTyping(false);
       return;
     }
 
-    setIsTypingGeneratedCode(true);
+    setIsTyping(true);
 
     let index = 0;
 
-    typingIntervalRef.current = setInterval(() => {
+    typingIntervalsRef.current[key] = setInterval(() => {
       setter(fullText.slice(0, index + 1));
       index += 1;
 
       if (index >= fullText.length) {
-        clearInterval(typingIntervalRef.current);
-        typingIntervalRef.current = null;
-        setIsTypingGeneratedCode(false);
+        clearTypingInterval(key);
+        setIsTyping(false);
+        setIsReady(true);
       }
     }, speed);
   };
 
+  const isAnyOutputTyping =
+    isTypingGeneratedCode || isTypingUiSchema || isTypingResolvedSchema;
+
+  const isAllOutputReady =
+    Boolean(previewConfig) &&
+    isGeneratedCodeReady &&
+    isUiSchemaReady &&
+    isResolvedSchemaReady;
+
   useEffect(() => {
     return () => {
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-        typingIntervalRef.current = null;
-      }
+      clearTypingInterval('generatedCode');
+      clearTypingInterval('uiSchema');
+      clearTypingInterval('resolvedSchema');
     };
   }, []);
 
@@ -203,13 +257,60 @@ export default function JsonxFormConfigPage() {
 
   useEffect(() => {
     if (!derived.generatedCode) {
+      clearTypingInterval('generatedCode');
       setTypedGeneratedCode('// Waiting for valid API response input');
       setIsTypingGeneratedCode(false);
+      setIsGeneratedCodeReady(false);
       return;
     }
 
-    simulateTyping(derived.generatedCode, setTypedGeneratedCode, 1);
+    simulateTyping({
+      key: 'generatedCode',
+      fullText: derived.generatedCode,
+      setter: setTypedGeneratedCode,
+      setIsTyping: setIsTypingGeneratedCode,
+      setIsReady: setIsGeneratedCodeReady,
+      speed: 1,
+    });
   }, [derived.generatedCode]);
+
+  useEffect(() => {
+    if (!derived.generatedUiSchemaPreview) {
+      clearTypingInterval('uiSchema');
+      setTypedUiSchema('// Waiting for generated UI schema');
+      setIsTypingUiSchema(false);
+      setIsUiSchemaReady(false);
+      return;
+    }
+
+    simulateTyping({
+      key: 'uiSchema',
+      fullText: uiSchemaText,
+      setter: setTypedUiSchema,
+      setIsTyping: setIsTypingUiSchema,
+      setIsReady: setIsUiSchemaReady,
+      speed: 1,
+    });
+  }, [derived.generatedUiSchemaPreview, uiSchemaText]);
+
+  useEffect(() => {
+    if (!previewConfig?.schema && !derived.parsed.data) {
+      clearTypingInterval('resolvedSchema');
+      setTypedResolvedSchema('// Waiting for resolved schema');
+      setIsTypingResolvedSchema(false);
+      setIsResolvedSchemaReady(false);
+      return;
+    }
+
+    simulateTyping({
+      key: 'resolvedSchema',
+      fullText: resolvedSchemaText,
+      setter: setTypedResolvedSchema,
+      setIsTyping: setIsTypingResolvedSchema,
+      setIsReady: setIsResolvedSchemaReady,
+      speed: 1,
+    });
+  }, [previewConfig?.schema, derived.parsed.data, resolvedSchemaText]);
 
   return (
     <div className="min-h-screen bg-slate-100 py-4 md:py-6">
@@ -488,7 +589,17 @@ export default function JsonxFormConfigPage() {
             <Card className="min-w-0 h-full rounded-3xl">
               <CardHeader>
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <CardTitle className="text-lg">Generated Output</CardTitle>
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">Generated Output</CardTitle>
+                    <div className="text-sm text-slate-600">
+                      {!derived.generatedCode
+                        ? 'Waiting for valid input'
+                        : isAnyOutputTyping
+                          ? 'Rendering output...'
+                          : 'Output ready'}
+                    </div>
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={actions.handleCopy} disabled={!derived.generatedCode}>
                       <Copy className="h-4 w-4" /> {state.copied ? 'Copied' : 'Copy'}
@@ -510,9 +621,10 @@ export default function JsonxFormConfigPage() {
                     <Button
                       variant="outline"
                       onClick={() => setIsFormPreviewOpen(true)}
-                      disabled={!previewConfig}
+                      disabled={!previewConfig || !isAllOutputReady}
                     >
-                      <Eye className="h-4 w-4" /> Generate Form
+                      <Eye className="h-4 w-4" />
+                      {isAnyOutputTyping ? 'Rendering Output...' : 'Generate Form'}
                     </Button>
                   </div>
                 </div>
@@ -539,11 +651,8 @@ export default function JsonxFormConfigPage() {
                   <TabsContent value="preview">
                     <ScrollArea className="h-[640px] rounded-2xl border border-slate-200 bg-slate-900 p-0">
                       <CodeBlock
-                        code={
-                          derived.generatedUiSchemaPreview
-                            ? JSON.stringify(derived.generatedUiSchemaPreview, null, 2)
-                            : '{}'
-                        }
+                        code={typedUiSchema || '// Waiting for generated UI schema'}
+                        showCursor={isTypingUiSchema}
                       />
                     </ScrollArea>
                   </TabsContent>
@@ -551,13 +660,8 @@ export default function JsonxFormConfigPage() {
                   <TabsContent value="inferred-schema">
                     <ScrollArea className="h-[640px] rounded-2xl border border-slate-200 bg-slate-900 p-0">
                       <CodeBlock
-                        code={
-                          previewConfig?.schema
-                            ? JSON.stringify(previewConfig.schema, null, 2)
-                            : derived.parsed.data
-                              ? JSON.stringify(derived.parsed.data, null, 2)
-                              : '{}'
-                        }
+                        code={typedResolvedSchema || '// Waiting for resolved schema'}
+                        showCursor={isTypingResolvedSchema}
                       />
                     </ScrollArea>
                   </TabsContent>

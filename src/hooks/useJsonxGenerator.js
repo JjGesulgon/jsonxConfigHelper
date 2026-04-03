@@ -30,6 +30,7 @@ export function useJsonxGenerator() {
     try {
       const apiPayload = JSON.parse(apiResponseText);
       const unwrappedPayload = unwrapApiPayload(apiPayload);
+
       return {
         data: inferSchemaFromApiResponse(
           unwrappedPayload,
@@ -38,7 +39,10 @@ export function useJsonxGenerator() {
         error: null,
       };
     } catch (error) {
-      return { data: null, error: error.message };
+      return {
+        data: null,
+        error: error.message,
+      };
     }
   }, [apiResponseText]);
 
@@ -55,10 +59,12 @@ export function useJsonxGenerator() {
 
   const generatedUiSchemaPreview = useMemo(() => {
     if (!parsed.data) return null;
+
     try {
       if ((generationMode === 'ai' || generationMode === 'hybrid') && aiGeneratedUiSchema) {
         return aiGeneratedUiSchema;
       }
+
       return generateUiSchemaFromSchema(parsed.data);
     } catch {
       return null;
@@ -77,6 +83,7 @@ export function useJsonxGenerator() {
 
   const generatedCode = useMemo(() => {
     if (!parsed.data) return '';
+
     try {
       const uiSchema =
         (generationMode === 'ai' || generationMode === 'hybrid') && aiGeneratedUiSchema
@@ -91,19 +98,37 @@ export function useJsonxGenerator() {
 
   const fieldCount = useMemo(() => {
     if (!parsed.data?.properties) return 0;
+
     return Object.values(parsed.data.properties).reduce((acc, value) => {
       if (value?.type === 'object' && value?.properties) {
         return acc + Object.keys(value.properties).length;
       }
+
       return acc + 1;
     }, 0);
   }, [parsed.data]);
 
-  const selfTests = useMemo(() => runSelfTests(), []);
-  const passedTests = selfTests.filter((test) => test.pass).length;
+  const selfTests = useMemo(() => {
+    if (!parsed.data) {
+      return runSelfTests({
+        schemaText: '',
+        apiResponseText,
+        exportName,
+      });
+    }
+
+    return runSelfTests({
+      schemaText: JSON.stringify(parsed.data, null, 2),
+      apiResponseText,
+      exportName,
+    });
+  }, [apiResponseText, exportName, parsed.data]);
+
+  const passedTests = selfTests.filter((test) => test.passed ?? test.pass).length;
 
   async function handleCopy() {
     if (!generatedCode) return;
+
     await navigator.clipboard.writeText(generatedCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
@@ -114,6 +139,7 @@ export function useJsonxGenerator() {
       setAiError('Please provide a valid API response first.');
       return;
     }
+
     if (!apiKey.trim()) {
       setAiError('API key is required for AI generation.');
       return;
@@ -130,6 +156,7 @@ export function useJsonxGenerator() {
         model,
         schema: parsed.data,
       });
+
       setAiGeneratedUiSchema(result.uiSchema);
       setAiNotes(Array.isArray(result.notes) ? result.notes : []);
       setHybridSuggestions([]);
@@ -147,6 +174,7 @@ export function useJsonxGenerator() {
       setAiError('Please provide a valid API response first.');
       return;
     }
+
     if (!apiKey.trim()) {
       setAiError('API key is required for hybrid generation.');
       return;
@@ -158,6 +186,7 @@ export function useJsonxGenerator() {
 
     try {
       const baseUiSchema = generateUiSchemaFromSchema(parsed.data);
+
       const result = await callHybridReviewApi({
         apiKey,
         baseUrl,
@@ -165,6 +194,7 @@ export function useJsonxGenerator() {
         schema: parsed.data,
         baseUiSchema,
       });
+
       setAiGeneratedUiSchema(result.uiSchema);
       setAiNotes(Array.isArray(result.notes) ? result.notes : []);
       setHybridSuggestions(Array.isArray(result.notes) ? result.notes : []);

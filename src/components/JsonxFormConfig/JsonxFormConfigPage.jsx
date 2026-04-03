@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Copy, Download, Eye, Wand2, XCircle } from 'lucide-react';
 import { useJsonxGenerator } from '../../hooks/useJsonxGenerator';
 import GeneratedFormPreviewModal from './GeneratedFormPreviewModal';
@@ -39,13 +39,6 @@ const Input = ({ className = '', ...props }) => (
   <input
     {...props}
     className={`w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 ${className}`}
-  />
-);
-
-const Textarea = ({ className = '', ...props }) => (
-  <textarea
-    {...props}
-    className={`w-full rounded-xl border border-slate-300 bg-white px-3 py-3 font-mono text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 ${className}`}
   />
 );
 
@@ -95,10 +88,13 @@ const TabsContent = ({ children, value, className = '' }) => {
   return <div className={className}>{children}</div>;
 };
 
-function CodeBlock({ code }) {
+function CodeBlock({ code, showCursor = false }) {
   return (
     <pre className="w-full overflow-x-auto rounded-2xl bg-slate-950 p-5 text-left text-sm leading-6 text-slate-100">
-      <code className="block whitespace-pre">{code}</code>
+      <code className="block whitespace-pre">
+        {code}
+        {showCursor ? <span className="animate-pulse">|</span> : null}
+      </code>
     </pre>
   );
 }
@@ -115,6 +111,9 @@ function PreviewCard({ label, value }) {
 export default function JsonxFormConfigPage() {
   const { state, derived, actions } = useJsonxGenerator();
   const [isFormPreviewOpen, setIsFormPreviewOpen] = useState(false);
+  const [typedGeneratedCode, setTypedGeneratedCode] = useState('');
+  const [isTypingGeneratedCode, setIsTypingGeneratedCode] = useState(false);
+  const typingIntervalRef = useRef(null);
 
   const parsedApiResponse = useMemo(() => {
     try {
@@ -132,6 +131,44 @@ export default function JsonxFormConfigPage() {
       schema: enrichSchemaFromApi(derived.generatedFormConfig.schema, parsedApiResponse),
     };
   }, [derived.generatedFormConfig, parsedApiResponse]);
+
+  const simulateTyping = (fullText, setter, speed = 1) => {
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+    }
+
+    setter('');
+
+    if (!fullText) {
+      setIsTypingGeneratedCode(false);
+      return;
+    }
+
+    setIsTypingGeneratedCode(true);
+
+    let index = 0;
+
+    typingIntervalRef.current = setInterval(() => {
+      setter(fullText.slice(0, index + 1));
+      index += 1;
+
+      if (index >= fullText.length) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+        setIsTypingGeneratedCode(false);
+      }
+    }, speed);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (isFormPreviewOpen) {
@@ -162,375 +199,400 @@ export default function JsonxFormConfigPage() {
     }
   }, [state.apiResponseText, actions]);
 
-  return (
-    <div className="min-h-screen bg-slate-100 px-8 py-4 md:px-12 md:py-6">
-      <div className="w-full space-y-6">
-        <div className="rounded-3xl border border-slate-0 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="rounded-full px-3 py-1">POC</Badge>
-                <Badge className="rounded-full px-3 py-1">API Response → 3 Exports</Badge>
-              </div>
-              <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-                  API Response → JSONX Config Helper
-                </h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  Paste an API response payload. The tool infers the schema and generates schema,
-                  uiSchema, and config exports.
-                </p>
-              </div>
-            </div>
+  useEffect(() => {
+    if (!derived.generatedCode) {
+      setTypedGeneratedCode('// Waiting for valid API response input');
+      setIsTypingGeneratedCode(false);
+      return;
+    }
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:w-[420px]">
-              <PreviewCard
-                label="Groups"
-                value={String(Object.keys(derived.parsed.data?.properties || {}).length)}
-              />
-              <PreviewCard label="Fields" value={String(derived.fieldCount)} />
-              <PreviewCard label="Tests" value={`${derived.passedTests}/${derived.selfTests.length}`} />
+    simulateTyping(derived.generatedCode, setTypedGeneratedCode, 1);
+  }, [derived.generatedCode]);
+
+  return (
+    <div className="min-h-screen bg-slate-100 py-4 md:py-6">
+      <div className="space-y-6">
+        <div className="px-8 md:px-12">
+          <div className="rounded-3xl border border-slate-0 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="rounded-full px-3 py-1">POC</Badge>
+                  <Badge className="rounded-full px-3 py-1">API Response → 3 Exports</Badge>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+                    API Response → JSONX Config Helper
+                  </h1>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                    Paste an API response payload. The tool infers the schema and generates schema,
+                    uiSchema, and config exports.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:w-[420px]">
+                <PreviewCard
+                  label="Groups"
+                  value={String(Object.keys(derived.parsed.data?.properties || {}).length)}
+                />
+                <PreviewCard label="Fields" value={String(derived.fieldCount)} />
+                <PreviewCard label="Tests" value={`${derived.passedTests}/${derived.selfTests.length}`} />
+              </div>
             </div>
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Generation Mode</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-3 lg:grid-cols-3">
-              <button
-                type="button"
-                onClick={() => actions.setGenerationMode('rules')}
-                className={`w-full rounded-2xl border p-4 text-left transition ${
-                  state.generationMode === 'rules'
-                    ? 'border-slate-900 bg-slate-50'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
-                }`}
-              >
-                <div className="mb-1 text-sm font-semibold text-slate-900">Rule-based</div>
-                <div className="text-sm leading-6 text-slate-600">
-                  Deterministic mapping based on widget, placeholder, and layout rules.
-                </div>
-              </button>
+        <div className="px-8 md:px-12">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Generation Mode</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-3 lg:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() => actions.setGenerationMode('rules')}
+                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                    state.generationMode === 'rules'
+                      ? 'border-slate-900 bg-slate-50'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="mb-1 text-sm font-semibold text-slate-900">Rule-based</div>
+                  <div className="text-sm leading-6 text-slate-600">
+                    Deterministic mapping based on widget, placeholder, and layout rules.
+                  </div>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => actions.setGenerationMode('ai')}
-                className={`w-full rounded-2xl border p-4 text-left transition ${
-                  state.generationMode === 'ai'
-                    ? 'border-slate-900 bg-slate-50'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
-                }`}
-              >
-                <div className="mb-1 text-sm font-semibold text-slate-900">AI-assisted</div>
-                <div className="text-sm leading-6 text-slate-600">
-                  Uses an OpenAI-compatible chat completions API to generate a JSON uiSchema.
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => actions.setGenerationMode('ai')}
+                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                    state.generationMode === 'ai'
+                      ? 'border-slate-900 bg-slate-50'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="mb-1 text-sm font-semibold text-slate-900">AI-assisted</div>
+                  <div className="text-sm leading-6 text-slate-600">
+                    Uses an OpenAI-compatible chat completions API to generate a JSON uiSchema.
+                  </div>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => actions.setGenerationMode('hybrid')}
-                className={`w-full rounded-2xl border p-4 text-left transition ${
-                  state.generationMode === 'hybrid'
-                    ? 'border-slate-900 bg-slate-50'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
-                }`}
-              >
-                <div className="mb-1 text-sm font-semibold text-slate-900">Hybrid</div>
-                <div className="text-sm leading-6 text-slate-600">
-                  Generate a rules scaffold, then let AI refine it conservatively.
-                </div>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => actions.setGenerationMode('hybrid')}
+                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                    state.generationMode === 'hybrid'
+                      ? 'border-slate-900 bg-slate-50'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="mb-1 text-sm font-semibold text-slate-900">Hybrid</div>
+                  <div className="text-sm leading-6 text-slate-600">
+                    Generate a rules scaffold, then let AI refine it conservatively.
+                  </div>
+                </button>
+              </div>
 
-            {state.generationMode !== 'rules' && (
-              <div className="flex flex-col items-center gap-4">
-                <Card className="w-full max-w-md">
-                  <CardHeader>
-                    <CardTitle className="text-lg">AI Settings</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700">Provider</label>
-                      <select
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
-                        value={state.apiProviderLabel}
-                        onChange={(e) => actions.handleProviderChange(e.target.value)}
-                      >
-                        <option>OpenAI</option>
-                        <option>Groq</option>
-                        <option>OpenRouter</option>
-                        <option>Ollama (local)</option>
-                        <option>Custom</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700">Model</label>
-                      <select
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
-                        value={state.model}
-                        onChange={(e) => actions.setModel(e.target.value)}
-                      >
-                        <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-                        <option value="gpt-4.1">gpt-4.1</option>
-                        <option value="gpt-4o-mini">gpt-4o-mini</option>
-                        <option value="llama-3.1-70b-versatile">llama-3.1-70b-versatile</option>
-                        <option value="llama3">llama3</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700">API Key</label>
-                      <Input
-                        value={state.apiKey}
-                        onChange={(e) => actions.setApiKey(e.target.value)}
-                        type="password"
-                        placeholder="Paste API key"
-                      />
-                    </div>
-
-                    <div className="flex justify-center">
-                      {state.generationMode === 'ai' && (
-                        <Button
-                          onClick={actions.handleAiGenerate}
-                          disabled={state.isGeneratingWithAi || !derived.parsed.data}
-                        >
-                          <Wand2 className="h-4 w-4" />
-                          {state.isGeneratingWithAi && state.activeAiAction === 'ai'
-                            ? 'Generating…'
-                            : 'AI Generate'}
-                        </Button>
-                      )}
-
-                      {state.generationMode === 'hybrid' && (
-                        <Button
-                          variant="outline"
-                          onClick={actions.handleHybridGenerate}
-                          disabled={state.isGeneratingWithAi || !derived.parsed.data}
-                        >
-                          <Wand2 className="h-4 w-4" />
-                          {state.isGeneratingWithAi && state.activeAiAction === 'hybrid'
-                            ? 'Reviewing…'
-                            : 'Hybrid Generate'}
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
-                      This POC expects an OpenAI-compatible <code>{'/chat/completions'}</code> endpoint that returns JSON.
-                    </div>
-
-                    {state.aiError && (
-                      <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                        {state.aiError}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {(state.aiNotes.length > 0 ||
-                  (state.hybridSuggestions.length > 0 && state.generationMode === 'hybrid')) && (
-                  <Card className="w-full border-slate-200 bg-slate-50 shadow-none">
+              {state.generationMode !== 'rules' && (
+                <div className="flex flex-col items-center gap-4">
+                  <Card className="w-full max-w-md">
                     <CardHeader>
-                      <CardTitle className="text-base">AI Notes</CardTitle>
+                      <CardTitle className="text-lg">AI Settings</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      {state.aiNotes.length > 0 && (
-                        <ul className="space-y-2 text-sm leading-6 text-slate-700">
-                          {state.aiNotes.map((note, index) => (
-                            <li key={`${note}-${index}`}>• {note}</li>
-                          ))}
-                        </ul>
-                      )}
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Provider</label>
+                        <select
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                          value={state.apiProviderLabel}
+                          onChange={(e) => actions.handleProviderChange(e.target.value)}
+                        >
+                          <option>OpenAI</option>
+                          <option>Groq</option>
+                          <option>OpenRouter</option>
+                          <option>Ollama (local)</option>
+                          <option>Custom</option>
+                        </select>
+                      </div>
 
-                      {state.hybridSuggestions.length > 0 && state.generationMode === 'hybrid' && (
-                        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-800">
-                          {state.hybridSuggestions.map((note, index) => (
-                            <div key={`${note}-${index}`}>• {note}</div>
-                          ))}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Model</label>
+                        <select
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                          value={state.model}
+                          onChange={(e) => actions.setModel(e.target.value)}
+                        >
+                          <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                          <option value="gpt-4.1">gpt-4.1</option>
+                          <option value="gpt-4o-mini">gpt-4o-mini</option>
+                          <option value="llama-3.1-70b-versatile">llama-3.1-70b-versatile</option>
+                          <option value="llama3">llama3</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">API Key</label>
+                        <Input
+                          value={state.apiKey}
+                          onChange={(e) => actions.setApiKey(e.target.value)}
+                          type="password"
+                          placeholder="Paste API key"
+                        />
+                      </div>
+
+                      <div className="flex justify-center">
+                        {state.generationMode === 'ai' && (
+                          <Button
+                            onClick={actions.handleAiGenerate}
+                            disabled={state.isGeneratingWithAi || !derived.parsed.data}
+                          >
+                            <Wand2 className="h-4 w-4" />
+                            {state.isGeneratingWithAi && state.activeAiAction === 'ai'
+                              ? 'Generating…'
+                              : 'AI Generate'}
+                          </Button>
+                        )}
+
+                        {state.generationMode === 'hybrid' && (
+                          <Button
+                            variant="outline"
+                            onClick={actions.handleHybridGenerate}
+                            disabled={state.isGeneratingWithAi || !derived.parsed.data}
+                          >
+                            <Wand2 className="h-4 w-4" />
+                            {state.isGeneratingWithAi && state.activeAiAction === 'hybrid'
+                              ? 'Reviewing…'
+                              : 'Hybrid Generate'}
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
+                        This POC expects an OpenAI-compatible <code>{'/chat/completions'}</code> endpoint that returns JSON.
+                      </div>
+
+                      {state.aiError && (
+                        <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                          {state.aiError}
                         </div>
                       )}
                     </CardContent>
                   </Card>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <div className="space-y-6">
-          <Card className="min-w-0">
-            <CardHeader>
-              <div className="flex flex-col gap-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Wand2 className="h-5 w-5" /> Input
-                </CardTitle>
+                  {(state.aiNotes.length > 0 ||
+                    (state.hybridSuggestions.length > 0 && state.generationMode === 'hybrid')) && (
+                    <Card className="w-full border-slate-200 bg-slate-50 shadow-none">
+                      <CardHeader>
+                        <CardTitle className="text-base">AI Notes</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {state.aiNotes.length > 0 && (
+                          <ul className="space-y-2 text-sm leading-6 text-slate-700">
+                            {state.aiNotes.map((note, index) => (
+                              <li key={`${note}-${index}`}>• {note}</li>
+                            ))}
+                          </ul>
+                        )}
 
-                <div className="text-sm leading-6 text-slate-600">
-                  Paste an API response payload. If the response contains a top-level <code>{'data'}</code> object,
-                  the generator will use that as the actual form source and ignore wrapper fields like
-                  <code>{'status'}</code> and <code>{'message'}</code>.
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Export Name</label>
-                  <Input
-                    value={state.exportName}
-                    onChange={(e) => actions.setExportName(e.target.value)}
-                    placeholder="auto-generated"
-                  />
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-slate-500">
-                      Suggested: <span className="font-medium text-slate-700">{state.suggestedExportName}</span>
-                    </span>
-                    <button
-                      type="button"
-                      className="rounded-lg border border-slate-300 px-2 py-1 font-medium text-slate-700 hover:bg-slate-50"
-                      onClick={actions.resetExportName}
-                    >
-                      Reset to suggested name
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              <div className="rounded-2xl border border-slate-300 overflow-hidden">
-                <Editor
-                  height="620px"
-                  defaultLanguage="json"
-                  value={state.apiResponseText}
-                  onChange={(value) => actions.setApiResponseText(value || '')}
-                  options={{
-                    lineNumbers: 'on',
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    wordWrap: 'on',
-                    formatOnPaste: true,
-                    formatOnType: true,
-                    automaticLayout: true,
-                    tabSize: 2,
-                    fontSize: 14,
-                    stickyScroll: {
-                      enabled: false,
-                    },
-                  }}
-                />
-              </div>
-
-              {derived.parsed.error && (
-                <div className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                  <AlertCircle className="mt-0.5 h-4 w-4" />
-                  <span>Invalid JSON: {derived.parsed.error}</span>
+                        {state.hybridSuggestions.length > 0 && state.generationMode === 'hybrid' && (
+                          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-800">
+                            {state.hybridSuggestions.map((note, index) => (
+                              <div key={`${note}-${index}`}>• {note}</div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               )}
             </CardContent>
           </Card>
+        </div>
 
-          <Card className="min-w-0">
-            <CardHeader>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <CardTitle className="text-lg">Generated Output</CardTitle>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={actions.handleCopy} disabled={!derived.generatedCode}>
-                    <Copy className="h-4 w-4" /> {state.copied ? 'Copied' : 'Copy'}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      const blob = new Blob([derived.generatedCode], { type: 'text/plain;charset=utf-8' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `${state.exportName}.ts`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    }}
-                    disabled={!derived.generatedCode}
-                  >
-                    <Download className="h-4 w-4" /> Export
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsFormPreviewOpen(true)}
-                    disabled={!previewConfig}
-                  >
-                    <Eye className="h-4 w-4" /> Generate Form
-                  </Button>
+        <div className="px-4 md:px-6">
+          <div className="grid gap-6 xl:grid-cols-[0.9fr_1.35fr] xl:items-start">
+            <Card className="min-w-0 h-full">
+              <CardHeader>
+                <div className="flex flex-col gap-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Wand2 className="h-5 w-5" /> Input
+                  </CardTitle>
+
+                  <div className="text-sm leading-6 text-slate-600">
+                    Paste an API response payload. If a top-level <code>{'data'}</code> object exists, it will be used
+                    as the form source.
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Export Name</label>
+                    <Input
+                      value={state.exportName}
+                      onChange={(e) => actions.setExportName(e.target.value)}
+                      placeholder="auto-generated"
+                    />
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="text-slate-500">
+                        Suggested: <span className="font-medium text-slate-700">{state.suggestedExportName}</span>
+                      </span>
+                      <button
+                        type="button"
+                        className="rounded-lg border border-slate-300 px-2 py-1 font-medium text-slate-700 hover:bg-slate-50"
+                        onClick={actions.resetExportName}
+                      >
+                        Reset to suggested name
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
+              </CardHeader>
 
-            <CardContent>
-              <Tabs defaultValue="typescript" className="w-full">
-                <TabsList className="mb-4 w-full">
-                  <TabsTrigger value="typescript">JSONX Form Config</TabsTrigger>
-                  <TabsTrigger value="preview">UI Schema</TabsTrigger>
-                  <TabsTrigger value="inferred-schema">Resolved Schema</TabsTrigger>
-                  <TabsTrigger value="tests">Self Tests</TabsTrigger>
-                </TabsList>
+              <CardContent className="space-y-4">
+                <div className="overflow-hidden rounded-2xl border border-slate-300">
+                  <Editor
+                    height="560px"
+                    defaultLanguage="json"
+                    value={state.apiResponseText}
+                    onChange={(value) => actions.setApiResponseText(value || '')}
+                    options={{
+                      lineNumbers: 'on',
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      wordWrap: 'on',
+                      formatOnPaste: true,
+                      formatOnType: true,
+                      automaticLayout: true,
+                      tabSize: 2,
+                      fontSize: 14,
+                      stickyScroll: {
+                        enabled: false,
+                      },
+                    }}
+                  />
+                </div>
 
-                <TabsContent value="typescript">
-                  <ScrollArea className="h-[700px] rounded-2xl border border-slate-200 bg-slate-900 p-0">
-                    <CodeBlock code={derived.generatedCode || '// Waiting for valid API response input'} />
-                  </ScrollArea>
-                </TabsContent>
+                {derived.parsed.error && (
+                  <div className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    <AlertCircle className="mt-0.5 h-4 w-4" />
+                    <span>Invalid JSON: {derived.parsed.error}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                <TabsContent value="preview">
-                  <ScrollArea className="h-[700px] rounded-2xl border border-slate-200 bg-slate-900 p-0">
-                    <CodeBlock
-                      code={
-                        derived.generatedUiSchemaPreview
-                          ? JSON.stringify(derived.generatedUiSchemaPreview, null, 2)
-                          : '{}'
-                      }
-                    />
-                  </ScrollArea>
-                </TabsContent>
+            <Card className="min-w-0 h-full">
+              <CardHeader>
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                  <CardTitle className="text-lg">Generated Output</CardTitle>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={actions.handleCopy} disabled={!derived.generatedCode}>
+                      <Copy className="h-4 w-4" /> {state.copied ? 'Copied' : 'Copy'}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const blob = new Blob([derived.generatedCode], { type: 'text/plain;charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${state.exportName}.ts`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      disabled={!derived.generatedCode}
+                    >
+                      <Download className="h-4 w-4" /> Export
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsFormPreviewOpen(true)}
+                      disabled={!previewConfig}
+                    >
+                      <Eye className="h-4 w-4" /> Generate Form
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
 
-                <TabsContent value="inferred-schema">
-                  <ScrollArea className="h-[700px] rounded-2xl border border-slate-200 bg-slate-900 p-0">
-                    <CodeBlock
-                      code={
-                        previewConfig?.schema
-                          ? JSON.stringify(previewConfig.schema, null, 2)
-                          : derived.parsed.data
-                            ? JSON.stringify(derived.parsed.data, null, 2)
+              <CardContent>
+                <Tabs defaultValue="typescript" className="w-full">
+                  <TabsList className="mb-4 w-full">
+                    <TabsTrigger value="typescript">JSONX Form Config</TabsTrigger>
+                    <TabsTrigger value="preview">UI Schema</TabsTrigger>
+                    <TabsTrigger value="inferred-schema">Resolved Schema</TabsTrigger>
+                    <TabsTrigger value="tests">Self Tests</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="typescript">
+                    <ScrollArea className="h-[640px] rounded-2xl border border-slate-200 bg-slate-900 p-0">
+                      <CodeBlock
+                        code={typedGeneratedCode || '// Waiting for valid API response input'}
+                        showCursor={isTypingGeneratedCode}
+                      />
+                    </ScrollArea>
+                  </TabsContent>
+
+                  <TabsContent value="preview">
+                    <ScrollArea className="h-[640px] rounded-2xl border border-slate-200 bg-slate-900 p-0">
+                      <CodeBlock
+                        code={
+                          derived.generatedUiSchemaPreview
+                            ? JSON.stringify(derived.generatedUiSchemaPreview, null, 2)
                             : '{}'
-                      }
-                    />
-                  </ScrollArea>
-                </TabsContent>
+                        }
+                      />
+                    </ScrollArea>
+                  </TabsContent>
 
-                <TabsContent value="tests">
-                  <ScrollArea className="h-[700px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="space-y-3">
-                      {derived.selfTests.map((test) => (
-                        <div
-                          key={test.name}
-                          className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4"
-                        >
-                          <div className="pr-4 text-sm leading-6 text-slate-800">{test.name}</div>
+                  <TabsContent value="inferred-schema">
+                    <ScrollArea className="h-[640px] rounded-2xl border border-slate-200 bg-slate-900 p-0">
+                      <CodeBlock
+                        code={
+                          previewConfig?.schema
+                            ? JSON.stringify(previewConfig.schema, null, 2)
+                            : derived.parsed.data
+                              ? JSON.stringify(derived.parsed.data, null, 2)
+                              : '{}'
+                        }
+                      />
+                    </ScrollArea>
+                  </TabsContent>
+
+                  <TabsContent value="tests">
+                    <ScrollArea className="h-[640px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="space-y-3">
+                        {derived.selfTests.map((test) => (
                           <div
-                            className={`flex items-center gap-2 text-sm font-medium ${
-                              test.pass ? 'text-green-700' : 'text-red-700'
+                            key={test.name}
+                            className={`rounded-2xl border p-4 ${
+                              test.passed
+                                ? 'border-emerald-200 bg-emerald-50'
+                                : 'border-red-200 bg-red-50'
                             }`}
                           >
-                            {test.pass ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                            {test.pass ? 'Pass' : 'Fail'}
+                            <div className="flex items-start gap-3">
+                              {test.passed ? (
+                                <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
+                              ) : (
+                                <XCircle className="mt-0.5 h-5 w-5 text-red-600" />
+                              )}
+
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-slate-900">{test.name}</div>
+                                <div className="mt-1 text-sm text-slate-700">{test.message}</div>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <GeneratedFormPreviewModal
